@@ -2,43 +2,47 @@ package main
 
 import (
 	"encoding/json"
-	"math/rand"
-	"github.com/gorilla/mux"
-	"net/http"
-	"time"
 	"fmt"
+	"math/rand"
+	"net/http"
+	"sync"
+
+	"github.com/gorilla/mux"
 )
 
 
-var Tasks   []Task = []Task{{ID: 353, Title: "project selection", Description: "select the project for fun and learn", Status: "started"}, 
-{ID: 817, Title: "meet lookup", Description: "Read the docs maintained till now ", Status: "not started"}, 
-{ID: 361, Title: "cipher update", Description: "Create a server for basic crud operation", Status: "completed"}}
+var (
+	
+	Tasks []Task 
+	mu1   sync.RWMutex
+)
 
+var jwttoken string = "thisshouldbestoreinenv"
 
 func ServeHome(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	fmt.Println("Serving Home Page")
-	w.Write([]byte("<h1>Welcome to the Task Management API</h1>"))
-
-
+	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
+
 func ServeTasks(w http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(w).Encode(Tasks)
+	w.Header().Set("Content-Type", "application/json")
+	
+	// Add read lock for concurrency safety
+	mu1.RLock()
+	defer mu1.RUnlock()
 
+	json.NewEncoder(w).Encode(Tasks)
 	for _, task := range Tasks {
-		// w.Write([]byte(fmt.Sprintf("Task ID: %d, Title: %s, Description: %s, Status: %s\n", task.ID, task.Title, task.Description, task.Status)))
 		fmt.Printf("Task ID: %d, Title: %s, Description: %s, Status: %s\n", task.ID, task.Title, task.Description, task.Status)
-		fmt.Fprintf(w, "Task ID: %d, Title: %s, Description: %s, Status: %s\n", task.ID, task.Title, task.Description, task.Status)
 	}
-	
-	
 }
 
-
-func ServeTask(w http.ResponseWriter, r *http.Request) {	
+func ServeTask(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
 	id := vars["id"]
+
+	mu1.RLock()
+	defer mu1.RUnlock()
 
 	for _, task := range Tasks {
 		if fmt.Sprintf("%d", task.ID) == id {
@@ -47,11 +51,16 @@ func ServeTask(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	http.Error(w, "Task not found", http.StatusNotFound)
-}		
+}
 
 func deleteTask(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
 	id := vars["id"]
+
+	// Add write lock for thread-safe slice manipulation
+	mu1.Lock()
+	defer mu1.Unlock()
 
 	for i, task := range Tasks {
 		if fmt.Sprintf("%d", task.ID) == id {
@@ -63,24 +72,29 @@ func deleteTask(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "Task not found", http.StatusNotFound)
 }
 
-
 func addTask(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	var task Task
 	err := json.NewDecoder(r.Body).Decode(&task)
 	if err != nil {
 		http.Error(w, "Invalid input", http.StatusBadRequest)
 		return
 	}
-	rand.Seed(time.Now().UnixNano())
+	
+	// Deprecated rand.Seed removed; Go handles seeding automatically now
+	// If using Go versions older than 1.20, keep: rand.Seed(time.Now().UnixNano())
 	task.ID = rand.Intn(1000)
-	Tasks = append(Tasks, task)
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(task)	
-	w.Write([]byte(fmt.Sprintf("Task created with ID: %d", task.ID)))
 
+	mu1.Lock()
+	Tasks = append(Tasks, task)
+	mu1.Unlock()
+
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(task)
 }
 
 func updateTask(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
 	id := vars["id"]
 
@@ -90,6 +104,9 @@ func updateTask(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid input", http.StatusBadRequest)
 		return
 	}
+
+	mu1.Lock()
+	defer mu1.Unlock()
 
 	for i, task := range Tasks {
 		if fmt.Sprintf("%d", task.ID) == id {
@@ -101,6 +118,4 @@ func updateTask(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	http.Error(w, "Task not found", http.StatusNotFound)
-}	
-
-
+}
