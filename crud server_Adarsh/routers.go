@@ -13,7 +13,7 @@ import (
 func ServeLoginPage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	// Make sure the file exists at this path relative to where you run your main binary
-	http.ServeFile(w, r, "frontend/tasks.html")
+	http.ServeFile(w, r, "frontend/login.html")
 }
 
 // ServeRegisterPage handles rendering the user registration view
@@ -37,7 +37,7 @@ func Route() *mux.Router {
 	// Unprotected Public Routes (Page serving)
 	router.HandleFunc("/", ServeHome).Methods("GET") 
 	router.HandleFunc("/register", ServeRegisterPage).Methods("GET")
-	router.HandleFunc("/login.html", ServeLoginPage).Methods("GET")
+	router.HandleFunc("/login", ServeLoginPage).Methods("GET")
 	router.HandleFunc("/tasks", ServeTasksPage).Methods("GET")
 
 	// Authentication API Routes
@@ -47,7 +47,7 @@ func Route() *mux.Router {
 	// Protected Profile Route
 	router.Handle("/profile", AuthMiddleware(http.HandlerFunc(Profile))).Methods("GET")
 
-	// Protected API task routes (prefixed with /api to avoid conflicts with HTML routes)
+	// Protected API task routes (prefixed with /api to avoid conflicts with HTML routes) // for postman testing 
 	router.Handle("/api/tasks", AuthMiddleware(http.HandlerFunc(ServeTasks))).Methods("GET")
 	router.Handle("/api/task/{id}", AuthMiddleware(http.HandlerFunc(ServeTask))).Methods("GET")
 	router.Handle("/api/task", AuthMiddleware(http.HandlerFunc(addTask))).Methods("POST")

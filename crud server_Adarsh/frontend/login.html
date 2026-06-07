@@ -35,11 +35,16 @@
         <div id="errorMsg" class="error"></div>
     </form>
     <div class="footer">
-        New here? <a href="/register.html">Register an account</a>
+        New here? <a href="/register">Register an account</a>
     </div>
 </div>
 
 <script>
+    // If token exists, auto-redirect to tasks page
+    if (localStorage.getItem('token')) {
+        window.location.href = '/tasks';
+    }
+
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const errorMsg = document.getElementById('errorMsg');

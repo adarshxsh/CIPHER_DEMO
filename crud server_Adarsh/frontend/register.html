@@ -39,7 +39,7 @@
         <div id="errorMsg" class="error"></div>
     </form>
     <div class="footer">
-        Already have an account? <a href="/login.html">Login here</a>
+        Already have an account? <a href="/login">Login here</a>
     </div>
 </div>
 
@@ -65,7 +65,7 @@
 
             if (response.ok) {
                 alert('Registration successful! Redirecting to login...');
-                window.location.href = '/login.html';
+                window.location.href = '/login';
             } else {
                 const text = await response.text();
                 errorMsg.innerText = text || 'Registration failed';

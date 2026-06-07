@@ -2,13 +2,15 @@ package main
 
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
-	"context"
+
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -39,11 +41,6 @@ database {
 */
 
 
-var (
-	userDB = make(map[string]User)
-	mu     sync.RWMutex
-)
-
 type contextKey string
 
 const (
@@ -52,7 +49,6 @@ const (
 
 
 func RegisterUser(w http.ResponseWriter, r *http.Request) {
-
 	var user User
 	err := json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
@@ -60,31 +56,37 @@ func RegisterUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	mu.Lock()
-	defer mu.Unlock()
-	if _, exists := userDB[user.Email]; exists {
+	// Check if user already exists
+	var existingEmail string
+	err = DB.QueryRow("SELECT email FROM users WHERE email = ?", user.Email).Scan(&existingEmail)
+	if err == nil {
 		http.Error(w, "User already exists", http.StatusConflict)
 		return
+	} else if err != sql.ErrNoRows {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
 	}
+
 	// create hash password 
 	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
 		http.Error(w, "Failed to hash password", http.StatusInternalServerError)
 		return
-
 	}
 	user.Password = string(hash)
-	fmt.Println(user)
-	userDB[user.Email] = user
+
+	_, err = DB.Exec("INSERT INTO users (email, name, password) VALUES (?, ?, ?)", user.Email, user.Name, user.Password)
+	if err != nil {
+		http.Error(w, "Failed to register user", http.StatusInternalServerError)
+		return
+	}
+
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(user)
-
-
 }
 
 
 func LoginUser(w http.ResponseWriter, r *http.Request) {
-
 	var credentials struct {
 		Email    string `json:"email"`
 		Password string `json:"pwd"`
@@ -95,11 +97,13 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mu.RLock()
-	user, exists := userDB[credentials.Email]
-	mu.RUnlock()
-	if !exists {
+	var user User
+	err = DB.QueryRow("SELECT email, name, password FROM users WHERE email = ?", credentials.Email).Scan(&user.Email, &user.Name, &user.Password)
+	if err == sql.ErrNoRows {
 		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	} else if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
 	}
 
@@ -128,8 +132,6 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"token": signedToken})
-
-
 }
 
 func Profile(w http.ResponseWriter, r *http.Request) {
@@ -169,6 +171,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		})
 
 		if err != nil || !token.Valid {
+			log.Printf("JWT Token validation failed: %v", err)
 			http.Error(w, "Invalid token", http.StatusUnauthorized)
 			return
 		}

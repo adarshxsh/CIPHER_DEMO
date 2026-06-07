@@ -46,9 +46,9 @@ database
 
 */
 
+// Actually not required in this codebase
 
-
-func enableCORS(next http.Handler) http.Handler {
+func enableCORS(next http.Handler) http.Handler {  
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Set CORS headers globally
 		w.Header().Set("Access-Control-Allow-Origin", "*") // Change * to specific origin for security
@@ -74,10 +74,10 @@ func main(){
 	// Router.HandleFunc("/", ServeHome).Methods("GET")
 	fmt.Println("Hello World")
 
+	InitDB()
+
 	r := Route()
 	fmt.Println("Server is getting started...")
 	log.Fatal(http.ListenAndServe(":4000", enableCORS(r)))
 	fmt.Println("Listening at port 4000 ...")
-	
-
 } 

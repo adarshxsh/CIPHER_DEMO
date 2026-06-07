@@ -1,21 +1,14 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"net/http"
-	"sync"
 
 	"github.com/gorilla/mux"
 )
 
-
-var (
-	
-	Tasks []Task 
-	mu1   sync.RWMutex
-)
 
 var jwttoken string = "thisshouldbestoreinenv"
 
@@ -26,14 +19,30 @@ func ServeHome(w http.ResponseWriter, r *http.Request) {
 func ServeTasks(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	
-	// Add read lock for concurrency safety
-	mu1.RLock()
-	defer mu1.RUnlock()
-
-	json.NewEncoder(w).Encode(Tasks)
-	for _, task := range Tasks {
-		fmt.Printf("Task ID: %d, Title: %s, Description: %s, Status: %s\n", task.ID, task.Title, task.Description, task.Status)
+	claims, ok := r.Context().Value(UserClaimsKey).(*JWTClaims)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
 	}
+
+	rows, err := DB.Query("SELECT id, title, description, status FROM tasks WHERE user_email = ? ORDER BY id DESC", claims.Email)
+	if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	tasks := []Task{}
+	for rows.Next() {
+		var task Task
+		if err := rows.Scan(&task.ID, &task.Title, &task.Description, &task.Status); err != nil {
+			http.Error(w, "Database error", http.StatusInternalServerError)
+			return
+		}
+		tasks = append(tasks, task)
+	}
+
+	json.NewEncoder(w).Encode(tasks)
 }
 
 func ServeTask(w http.ResponseWriter, r *http.Request) {
@@ -41,16 +50,23 @@ func ServeTask(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 
-	mu1.RLock()
-	defer mu1.RUnlock()
-
-	for _, task := range Tasks {
-		if fmt.Sprintf("%d", task.ID) == id {
-			json.NewEncoder(w).Encode(task)
-			return
-		}
+	claims, ok := r.Context().Value(UserClaimsKey).(*JWTClaims)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
 	}
-	http.Error(w, "Task not found", http.StatusNotFound)
+
+	var task Task
+	err := DB.QueryRow("SELECT id, title, description, status FROM tasks WHERE id = ? AND user_email = ?", id, claims.Email).Scan(&task.ID, &task.Title, &task.Description, &task.Status)
+	if err == sql.ErrNoRows {
+		http.Error(w, "Task not found", http.StatusNotFound)
+		return
+	} else if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(task)
 }
 
 func deleteTask(w http.ResponseWriter, r *http.Request) {
@@ -58,18 +74,25 @@ func deleteTask(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 
-	// Add write lock for thread-safe slice manipulation
-	mu1.Lock()
-	defer mu1.Unlock()
-
-	for i, task := range Tasks {
-		if fmt.Sprintf("%d", task.ID) == id {
-			Tasks = append(Tasks[:i], Tasks[i+1:]...)
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
+	claims, ok := r.Context().Value(UserClaimsKey).(*JWTClaims)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
 	}
-	http.Error(w, "Task not found", http.StatusNotFound)
+
+	res, err := DB.Exec("DELETE FROM tasks WHERE id = ? AND user_email = ?", id, claims.Email)
+	if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil || rowsAffected == 0 {
+		http.Error(w, "Task not found", http.StatusNotFound)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func addTask(w http.ResponseWriter, r *http.Request) {
@@ -81,13 +104,25 @@ func addTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// Deprecated rand.Seed removed; Go handles seeding automatically now
-	// If using Go versions older than 1.20, keep: rand.Seed(time.Now().UnixNano())
-	task.ID = rand.Intn(1000)
+	claims, ok := r.Context().Value(UserClaimsKey).(*JWTClaims)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 
-	mu1.Lock()
-	Tasks = append(Tasks, task)
-	mu1.Unlock()
+	res, err := DB.Exec("INSERT INTO tasks (title, description, status, user_email) VALUES (?, ?, ?, ?)",
+		task.Title, task.Description, task.Status, claims.Email)
+	if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	lastID, err := res.LastInsertId()
+	if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+	task.ID = int(lastID)
 
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(task)
@@ -105,17 +140,29 @@ func updateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mu1.Lock()
-	defer mu1.Unlock()
-
-	for i, task := range Tasks {
-		if fmt.Sprintf("%d", task.ID) == id {
-			Tasks[i].Title = updatedTask.Title
-			Tasks[i].Description = updatedTask.Description
-			Tasks[i].Status = updatedTask.Status
-			json.NewEncoder(w).Encode(Tasks[i])
-			return
-		}
+	claims, ok := r.Context().Value(UserClaimsKey).(*JWTClaims)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
 	}
-	http.Error(w, "Task not found", http.StatusNotFound)
+
+	res, err := DB.Exec("UPDATE tasks SET title = ?, description = ?, status = ? WHERE id = ? AND user_email = ?",
+		updatedTask.Title, updatedTask.Description, updatedTask.Status, id, claims.Email)
+	if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil || rowsAffected == 0 {
+		http.Error(w, "Task not found", http.StatusNotFound)
+		return
+	}
+
+	updatedTask.ID = 0 
+	var intID int
+	fmt.Sscanf(id, "%d", &intID)
+	updatedTask.ID = intID
+
+	json.NewEncoder(w).Encode(updatedTask)
 }
