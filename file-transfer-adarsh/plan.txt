@@ -1,0 +1,16 @@
+file should be sent through the network 
+	sender side on port 8085
+	reciever side on port 8090. 
+
+
+
+till now : 
+    throwing raw bytes over the network.
+    need to make http request from the browser on different port 
+    reciever can get the byte and save in the ouput folder 
+    all input and output file location hardcoded 
+
+next goal : 
+    raw tcp message to split as http method 
+    
+
