@@ -4,6 +4,7 @@ package main
 
 import (	
 	"fmt"
+	"net/http"
 	"file-transfer-adarsh/controllers"
 )
 
@@ -20,33 +21,21 @@ fr -- file should be sent through the network
 
 */
 func main() {
-	fmt.Println("Welcome to the file transfer application : 📲")
-
-	fmt.Println("Enter the option 1.sender 2.reciever ")
-
-	var option int
-
-	
-	fmt.Scanln(&option)
-
-	if option == 1 {
-		fmt.Println("You have selected the sender option : 📤")
-			controllers.Sender()
-	
-	} else if option == 2 {
-		fmt.Println("You have selected the reciever option : 📥")
+	fmt.Println("Starting Cipher File Transfer Web UI on http://localhost:3000 🌐")
 		
-			controllers.Reciever()
+	// Setup API routes
+	http.HandleFunc("/api/upload", controllers.HandleUpload)
+	http.HandleFunc("/api/download", controllers.HandleDownload)
+	http.HandleFunc("/api/start-receiver", controllers.HandleStartReceiver)
 
-	} else {
-		fmt.Println("Invalid option selected. Please try again.")
-	}	
+	// Serve static frontend
+	fs := http.FileServer(http.Dir("./frontend"))
+	http.Handle("/", fs)
 
-	
-		
-
-	
-
+	err := http.ListenAndServe(":3000", nil)
+	if err != nil {
+		fmt.Println("Error starting web server:", err)
+	}
 }
 
 

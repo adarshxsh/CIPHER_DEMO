@@ -8,6 +8,9 @@ import (
 	"os"
 )
 
+
+
+
 func Reciever() {
 	fmt.Println("You are on port: 8090 to recieve file ")
 
@@ -20,37 +23,52 @@ func Reciever() {
 
 	fmt.Println("Server is listening on port 8090...")
 
-	conn, err := server.Accept()
-	if err != nil {
-		fmt.Println("Error accepting connection:", err)
-		return
+	for {
+		conn, err := server.Accept()
+		if err != nil {
+			fmt.Println("Error accepting connection:", err)
+			continue
+		}
+		
+		go handleConnection(conn)
 	}
-	defer conn.Close()
+}
 
+func handleConnection(conn net.Conn) {
+	defer conn.Close()
 	fmt.Println("Client connected:", conn.RemoteAddr())
 
-	// Ensure the output directory exists
-	err = os.MkdirAll("output", 0755)
+	// Read everything from connection
+	data, err := io.ReadAll(conn)
 	if err != nil {
-		fmt.Println("Error creating directory:", err)
+		fmt.Println("Error reading from connection:", err)
 		return
 	}
 
-	// Create the destination image file
-	outFile, err := os.Create("output/img.png")
+	method, fname, payload, err := AnalyseRequest(data)
 	if err != nil {
-		fmt.Println("Error creating file:", err)
-		return
-	}
-	defer outFile.Close()
-
-	// io.Copy automatically reads from the network stream in chunks 
-	// and writes to your file until the sender closes the connection (EOF).
-	written, err := io.Copy(outFile, conn)
-	if err != nil {
-		fmt.Println("Error saving stream to file:", err)
+		fmt.Println("Invalid protocol:", err)
+		conn.Write([]byte("STATUS 400\n\nMalformed request"))
 		return
 	}
 
-	fmt.Printf("File saved successfully! Bytes received: %d\n", written)
+	if method == "POST" {
+		// Ensure the output directory exists
+		err = os.MkdirAll("output", 0755)
+		if err != nil {
+			fmt.Println("Error creating directory:", err)
+			return
+		}
+		
+		// We no longer save to the output directory to prevent disk space leaks.
+		// The Web UI handles the actual file download.
+		fmt.Printf("TCP Receiver verified file %s successfully! Bytes received: %d\n", fname, len(payload))
+		conn.Write([]byte("STATUS 200\n\nOK"))
+	} else if method == "GET" {
+		// GET is not supported by the dummy receiver anymore, 
+		// because files are stored in staging/ and managed by the Web API.
+		conn.Write([]byte("STATUS 404\n\nFile Not Found"))
+	} else {
+		conn.Write([]byte("STATUS 400\n\nUnknown Method"))
+	}
 }
