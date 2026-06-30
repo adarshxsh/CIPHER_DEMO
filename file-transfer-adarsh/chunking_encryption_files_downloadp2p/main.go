@@ -22,6 +22,7 @@ func main() {
 	filePtr := flag.String("file", "", "file to seed or leech (default: ../demo.txt)")
 	trackerPtr := flag.String("tracker", "", "tracker address (e.g., 192.168.1.5:8080)")
 	portPtr := flag.String("port", "", "port to listen on (for tracker or seeder)")
+	myIPPtr := flag.String("myip", "", "your own IP address (for seeder)")
 	flag.Parse()
 
 	// If mode is not provided via flag, ask for it
@@ -38,6 +39,9 @@ func main() {
 		if *trackerPtr == "" {
 			*trackerPtr = promptUser("Enter tracker address (e.g., 192.168.1.5:8080): ")
 		}
+		if *myIPPtr == "" {
+			*myIPPtr = promptUser("Enter YOUR IP address (e.g., 100.98.125.47): ")
+		}
 		if *portPtr == "" {
 			*portPtr = promptUser("Enter port for seeder to listen on (e.g., 8081): ")
 		}
@@ -47,7 +51,7 @@ func main() {
 				*filePtr = "../demo.txt"
 			}
 		}
-		RunSeeder(*trackerPtr, *filePtr, *portPtr)
+		RunSeeder(*trackerPtr, *filePtr, *myIPPtr, *portPtr)
 	} else if *mode == "leecher" {
 		if *trackerPtr == "" {
 			*trackerPtr = promptUser("Enter tracker address (e.g., 192.168.1.5:8080): ")

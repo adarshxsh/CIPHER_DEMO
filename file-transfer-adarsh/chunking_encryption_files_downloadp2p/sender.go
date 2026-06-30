@@ -114,11 +114,11 @@ func PreprocessFile(filename string) {
 	fmt.Println("Preprocessed and stored to disk in", outDir)
 }
 
-func RunSeeder(trackerAddr, filename, listenPort string) {
+func RunSeeder(trackerAddr, filename, myIP, listenPort string) {
 	// First ensure file is preprocessed
 	PreprocessFile(filename)
 	
-	listenAddr := "100.98.125.147:" + listenPort
+	listenAddr := myIP + ":" + listenPort
 
 	// Announce to Tracker
 	fmt.Println("Announcing to tracker:", trackerAddr)

@@ -39,9 +39,9 @@ Launch the central tracker on port `8080`.
 ```
 
 ### 2. Start a Seeder (Host a File)
-In a new terminal window, run a Seeder. Tell it the tracker address, the file to host, and what port it should listen on (`9090`).
+In a new terminal window, run a Seeder. Tell it the tracker address, your IP address (so the tracker knows where you are), the file to host, and what port it should listen on (`9090`).
 ```bash
-./chunk_app -mode=seeder -tracker=127.0.0.1:8080 -port=9090 -file=demo.txt
+./chunk_app -mode=seeder -tracker=127.0.0.1:8080 -myip=127.0.0.1 -port=9090 -file=demo.txt
 ```
 
 ### 3. Start a Leecher (Download a File)
