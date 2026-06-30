@@ -41,13 +41,19 @@ Launch the central tracker on port `8080`.
 ### 2. Start a Seeder (Host a File)
 In a new terminal window, run a Seeder. Tell it the tracker address, the file to host, and what port it should listen on (`9090`).
 ```bash
-./chunk_app -mode=seeder -tracker=127.0.0.1:8080 -listen=9090 -file=demo.txt
+./chunk_app -mode=seeder -tracker=127.0.0.1:8080 -port=9090 -file=demo.txt
 ```
 
 ### 3. Start a Leecher (Download a File)
 In a third terminal window, run a Leecher. Ask the tracker for the location of the file, then download it.
 ```bash
 ./chunk_app -mode=leecher -tracker=127.0.0.1:8080 -file=demo.txt
+```
+
+### Interactive Mode
+If you prefer not to use command-line flags, you can simply run the application without them. The application will interactively prompt you in the terminal for the required information, such as the mode, tracker IP address, port, and file paths. This is especially useful when running the application across different laptops on a local network!
+```bash
+./chunk_app
 ```
 
 Upon successful download, the reconstructed and verified file will be saved securely in the `received_files/` directory!
