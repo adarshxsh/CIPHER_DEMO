@@ -118,7 +118,7 @@ func RunSeeder(trackerAddr, filename, listenPort string) {
 	// First ensure file is preprocessed
 	PreprocessFile(filename)
 	
-	listenAddr := "127.0.0.1:" + listenPort
+	listenAddr := "100.98.125.147:" + listenPort
 
 	// Announce to Tracker
 	fmt.Println("Announcing to tracker:", trackerAddr)

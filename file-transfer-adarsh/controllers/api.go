@@ -47,7 +47,6 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error saving to staging", http.StatusInternalServerError)
 		return
 	}
-	
 
 	// Generate 6-digit PIN
 	pin, err := GeneratePIN(handler.Filename, filePath)
@@ -107,7 +106,7 @@ func HandleDownload(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	// Even if the local TCP receiver is down, we still send the file to the browser
-	
+
 	// Clean up staging file
 	os.Remove(transfer.FilePath)
 

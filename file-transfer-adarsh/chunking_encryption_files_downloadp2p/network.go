@@ -19,7 +19,7 @@ type Transport interface {
 type TCPTransport struct{}
 
 func (t *TCPTransport) ListenForRequests(port string, handler func(filename string) (Metadata, KeyNonceMap, [][]byte, error)) error {
-	ln, err := net.Listen("tcp", "127.0.0.1:"+port)
+	ln, err := net.Listen("tcp", ":"+port)
 	if err != nil {
 		return err
 	}

@@ -21,7 +21,7 @@ var fileRegistry = make(map[string][]string)
 var registryMutex = sync.Mutex{}
 
 func RunTrackerServer(port string) {
-	ln, err := net.Listen("tcp", "127.0.0.1:"+port)
+	ln, err := net.Listen("tcp", ":"+port)
 	if err != nil {
 		fmt.Println("Tracker listen error:", err)
 		return
